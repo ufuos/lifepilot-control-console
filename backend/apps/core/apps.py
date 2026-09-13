@@ -1,0 +1,16 @@
+
+"""
+App Configuration for LifePilot Core utilities application.
+"""
+
+from django.apps import AppConfig
+
+
+class CoreConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.core"
+    verbose_name = "LifePilot Core Infrastructure"
+
+    def ready(self):
+        """Perform system checks or signal registrations on application startup."""
+        pass

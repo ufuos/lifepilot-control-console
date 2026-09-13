@@ -1,0 +1,16 @@
+cat << 'EOF' > .dockerignore
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+env
+ENV
+node_modules
+.dockerignore
+Dockerfile
+*.log
+EOF

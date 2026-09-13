@@ -3,9 +3,6 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import checker from "vite-plugin-checker";
-// @ts-expect-error - No type declarations for custom plugin
-import clearLogPlugin from "./dala-internal-vite-clear-log-plugin.js";
-
 import dns from "node:dns";
 
 dns.setDefaultResultOrder("verbatim");
@@ -13,7 +10,6 @@ dns.setDefaultResultOrder("verbatim");
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
-    clearLogPlugin(),
     react(),
     tailwindcss(),
     checker({
@@ -36,6 +32,6 @@ export default defineConfig({
     },
   },
   build: {
-    chunkSizeWarningLimit: 5000, // Increases the limit to 5MB
+    chunkSizeWarningLimit: 5000,
   },
 });

@@ -1,0 +1,204 @@
+services:
+
+  # ==========================================================
+  # 1. Django / Daphne ASGI Backend + AI Agents
+  # ==========================================================
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: lifepilot_backend
+    restart: unless-stopped
+
+    working_dir: /app/backend
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings
+      PYTHONPATH: /app/backend
+
+      SECRET_KEY: ${SECRET_KEY:-django-insecure-lifepilot-control-console-local-dev-key-change-in-production}
+      DEBUG: ${DEBUG:-1}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+
+      DB_ENGINE: ${DB_ENGINE:-django.db.backends.postgresql}
+      DB_NAME: ${DB_NAME:-lifepilot-control-console}
+      DB_USER: ${DB_USER:-lifepilot-control-consoleadmin}
+      DB_PASSWORD: ${DB_PASSWORD:-000000}
+
+      # Docker service aliases
+      DB_HOST: postgres
+      DB_PORT: 5432
+
+      USE_SQLITE: ${USE_SQLITE:-0}
+
+      REDIS_URL: redis://redis:6379/0
+
+      USE_IN_MEMORY_CHANNEL_LAYER: ${USE_IN_MEMORY_CHANNEL_LAYER:-0}
+
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173}
+
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-0}
+      CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-0}
+
+      DJANGO_LOG_LEVEL: ${DJANGO_LOG_LEVEL:-INFO}
+
+      # Strands Agent Configuration
+      STRANDS_MODEL: ${STRANDS_MODEL:-gemini-2.5-flash}
+      STRANDS_MAX_ITERATIONS: ${STRANDS_MAX_ITERATIONS:-15}
+      STRANDS_MEMORY_BACKEND: ${STRANDS_MEMORY_BACKEND:-redis}
+
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+
+      LANGGRAPH_CHECKPOINTER: ${LANGGRAPH_CHECKPOINTER:-postgres}
+
+      HITL_TIMEOUT_SECONDS: ${HITL_TIMEOUT_SECONDS:-86400}
+
+
+    env_file:
+      - .env
+
+
+    depends_on:
+
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+
+    volumes:
+
+      - .:/app
+
+      - static_volume:/app/staticfiles
+
+      - media_volume:/app/media
+
+
+
+  # ==========================================================
+  # 2. PostgreSQL Database
+  # ==========================================================
+  postgres:
+
+    image: postgres:16-alpine
+
+    container_name: lifepilot_postgres
+
+    restart: unless-stopped
+
+
+    networks:
+
+      default:
+
+        aliases:
+
+          - postgres
+
+
+    environment:
+
+      POSTGRES_DB: lifepilot-control-console
+
+      POSTGRES_USER: lifepilot-control-consoleadmin
+
+      POSTGRES_PASSWORD: "000000"
+
+
+    ports:
+
+      - "5432:5432"
+
+
+    volumes:
+
+      - postgres_data:/var/lib/postgresql/data
+
+
+    healthcheck:
+
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U lifepilot-control-consoleadmin -d lifepilot-control-console"
+        ]
+
+      interval: 5s
+
+      timeout: 5s
+
+      retries: 5
+
+
+
+  # ==========================================================
+  # 3. Redis
+  # ==========================================================
+  redis:
+
+    image: redis:7-alpine
+
+    container_name: lifepilot_redis
+
+    restart: unless-stopped
+
+
+    networks:
+
+      default:
+
+        aliases:
+
+          - redis
+
+
+    ports:
+
+      - "6379:6379"
+
+
+    volumes:
+
+      - redis_data:/data
+
+
+    healthcheck:
+
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "ping"
+        ]
+
+      interval: 5s
+
+      timeout: 5s
+
+      retries: 5
+
+
+
+# ==========================================================
+# Volumes
+# ==========================================================
+
+volumes:
+
+  postgres_data:
+    driver: local
+
+  redis_data:
+    driver: local
+
+  static_volume:
+    driver: local
+
+  media_volume:
+    driver: local

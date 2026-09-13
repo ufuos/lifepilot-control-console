@@ -1,0 +1,5 @@
+"""
+Authentication module initialization.
+"""
+
+default_app_config = "apps.authentication.AuthenticationConfig"
