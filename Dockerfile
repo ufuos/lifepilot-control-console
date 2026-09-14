@@ -1,7 +1,7 @@
 # ==========================================================
-# LifePilot Control Console Backend
-# Multi-stage Dockerfile
-# Python 3.12 + Django + Daphne + Channels
+# LifePilot Control Console
+# Django + Daphne + Channels + PostgreSQL + Redis
+# Python 3.12
 # ==========================================================
 
 
@@ -20,7 +20,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 
-# Install build dependencies
+# Build dependencies
 RUN apt-get update -o Acquire::Retries=5 \
     && apt-get install -y --no-install-recommends \
         build-essential \
@@ -30,19 +30,20 @@ RUN apt-get update -o Acquire::Retries=5 \
     && rm -rf /var/lib/apt/lists/*
 
 
-# Copy requirements
-COPY backend/requirements.txt /app/requirements.txt
+
+# Install Python dependencies
+COPY backend/requirements.txt ./requirements.txt
 
 
-# Create virtual environment and install packages
 RUN python -m venv /opt/venv \
     && /opt/venv/bin/pip install --upgrade pip setuptools wheel \
-    && /opt/venv/bin/pip install --no-cache-dir -r /app/requirements.txt
+    && /opt/venv/bin/pip install --no-cache-dir -r requirements.txt
+
 
 
 
 # ==========================================================
-# RUNNER STAGE
+# RUNTIME STAGE
 # ==========================================================
 
 FROM python:3.12-slim AS runner
@@ -54,10 +55,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH"
 
 
+
 WORKDIR /app
 
 
-# Runtime dependencies
+
+# Runtime packages
 RUN apt-get update -o Acquire::Retries=5 \
     && apt-get install -y --no-install-recommends \
         libpq5 \
@@ -67,48 +70,48 @@ RUN apt-get update -o Acquire::Retries=5 \
     && rm -rf /var/lib/apt/lists/*
 
 
-# Copy Python environment
+
+
+# Copy virtual environment
 COPY --from=builder /opt/venv /opt/venv
 
 
+
 # Copy Django project
-COPY backend /app
+COPY backend/ /app/
+
 
 
 # Create startup script
-RUN printf '#!/bin/sh\n\
-set -e\n\
-\n\
-echo "Waiting for PostgreSQL ($DB_HOST:$DB_PORT)..."\n\
-while ! nc -z $DB_HOST $DB_PORT; do\n\
-    sleep 1\n\
-done\n\
-echo "PostgreSQL started"\n\
-\n\
-echo "Waiting for Redis ($REDIS_HOST:$REDIS_PORT)..."\n\
-while ! nc -z $REDIS_HOST $REDIS_PORT; do\n\
-    sleep 1\n\
-done\n\
-echo "Redis started"\n\
-\n\
-exec "$@"\n' > /app/entrypoint.sh \
+RUN printf '%s\n' \
+'#!/bin/sh' \
+'set -e' \
+'' \
+'echo "Waiting for PostgreSQL..."' \
+'until nc -z ${DB_HOST:-postgres} ${DB_PORT:-5432}; do' \
+'    sleep 1' \
+'done' \
+'echo "PostgreSQL ready"' \
+'' \
+'echo "Waiting for Redis..."' \
+'until nc -z ${REDIS_HOST:-redis} ${REDIS_PORT:-6379}; do' \
+'    sleep 1' \
+'done' \
+'echo "Redis ready"' \
+'' \
+'exec "$@"' \
+> /app/entrypoint.sh \
 && chmod +x /app/entrypoint.sh
+
 
 
 
 EXPOSE 8000
 
 
+
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 
-CMD [
-    "python",
-    "-m",
-    "daphne",
-    "-b",
-    "0.0.0.0",
-    "-p",
-    "8000",
-    "config.asgi:application"
-]
+
+CMD ["python","-m","daphne","-b","0.0.0.0","-p","8000","config.asgi:application"]
